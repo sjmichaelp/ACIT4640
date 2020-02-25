@@ -1,0 +1,32 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "basebox_4640"
+
+  config.ssh.username = "admin"
+  config.ssh.private_key_path = "./files/acit_admin_id_rsa"
+
+  config.vm.define "todoapp" do |todoapp|
+    todoapp.vm.hostname = "todoapp.bcit.local"
+    todoapp.vm.network "forwarded_port", guest: 80, host: 12080
+    todoapp.vm.synced_folder ".", "/vagrant", disabled: true
+    todoapp.vm.provision "file", source: "./files/nginx.conf", destination: "/home/admin/nginx.conf"
+    todoapp.vm.provision "shell" do |shell|
+      shell.path = "./files/install_script.sh"
+	todoapp.vm.provision "file", source: "./ACIT4640/", destination: "/home/admin/ACIT4640/"
+
+    todoapp.vm.provision "shell", inline: <<-SHELL
+	  export LANG=C
+	  yum install -y mongodb
+	  mongorestore -d acit4640 ./ACIT4640/ACIT4640/
+    SHELL
+
+    end
+
+    todoapp.vm.provider "virtualbox" do |vb|
+      vb.name = "TODO_4640"
+      vb.linked_clone = true
+    end
+  end
+
+
+
+end
