@@ -1,0 +1,65 @@
+---
+- hosts: all
+  vars:
+    admin_user: admin
+    todo_user: todoapp
+  tasks:
+    - name: Install required packages
+      become: yes
+      package:
+        name:
+          - nginx
+          - git
+          - nodejs
+          - mongodb-server
+          - mongodb-2.6.12-6.el7.x86_64
+        state: present
+    - name: create user todoapp
+      become: yes
+      user:
+        name: "{{ todo_user }}"
+    - name: create home directory
+      become: yes
+      file:
+        path: /home/{{ todo_user }}
+        state: directory
+        mode: 0755
+    - name: set up app from git
+      become: yes
+      become_user: "{{ todo_user }}"
+      git: 
+        repo: https://github.com/timoguic/ACIT4640-todo-app.git
+        dest: /home/{{ todo_user }}/app
+        force: yes
+    - name: install node modules
+      become: yes
+      npm:
+        path: /home/{{ todo_user }}/app
+        state: present
+    - name: copy the configuration file
+      become: yes
+      copy:
+        src: files/{{ item.src }}
+        dest: "{{ item.dest }}"
+      loop:
+        - { src: database.js, dest: "/home/{{ todo_user }}/app/config/" }
+        - { src: nginx.conf, dest: /etc/nginx/ }
+        - { src: todoapp.service, dest: /etc/systemd/system/ }
+        - { src: ACIT4640, dest: "/home/{{ admin_user }}/" }
+    - name: manage services
+      become: yes
+      systemd:
+        daemon-reload: yes
+        name: "{{ item }}"
+        state: started
+        enabled: yes
+      loop:
+        - mongod
+        - todoapp
+        - nginx
+    - name: load mongdb data
+      become: yes
+      command: 
+        cmd: "{{ item }}"
+      loop:
+        - mongorestore -d acit4640 /home/{{ admin_user }}/ACIT4640
